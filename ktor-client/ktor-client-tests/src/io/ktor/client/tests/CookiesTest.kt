@@ -16,10 +16,12 @@ import kotlin.test.*
 
 
 abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : TestWithKtor() {
+    private val hostname = "http://localhost"
+
     override val server: ApplicationEngine = embeddedServer(Jetty, serverPort) {
         routing {
             get("/") {
-                val cookie = Cookie("hello-cookie", "my-awesome-value")
+                val cookie = Cookie("hello-cookie", "my-awesome-value", domain = "localhost")
                 context.response.cookies.append(cookie)
 
                 context.respond("Done")
@@ -31,8 +33,10 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
                     return@get
                 }
 
-                context.response.cookies.append(Cookie("id", (id + 1).toString()))
-                context.response.cookies.append(Cookie("user", "ktor"))
+                with(context.response.cookies) {
+                    append(Cookie("id", (id + 1).toString(), domain = "localhost", path = "/"))
+                    append(Cookie("user", "ktor", domain = "localhost", path = "/"))
+                }
 
                 context.respond("Done")
             }
@@ -56,7 +60,7 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
 
         test { client ->
             client.get<Unit>(port = serverPort)
-            client.cookies("localhost").let {
+            client.cookies(hostname).let {
                 assertEquals(1, it.size)
                 assertEquals("my-awesome-value", it["hello-cookie"]!!.value)
             }
@@ -69,7 +73,7 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
             install(HttpCookies) {
                 default {
                     runBlocking {
-                        addCookie("localhost", Cookie("id", "1"))
+                        addCookie(hostname, Cookie("id", "1", domain = "localhost"))
                     }
                 }
             }
@@ -80,7 +84,7 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
                 val before = client.getId()
                 client.get<Unit>(path = "/update-user-id", port = serverPort)
                 assertEquals(before + 1, client.getId())
-                assertEquals("ktor", client.cookies("localhost")["user"]?.value)
+                assertEquals("ktor", client.cookies(hostname)["user"]?.value)
             }
         }
     }
@@ -89,7 +93,7 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
     fun testConstant(): Unit = clientTest(factory) {
         config {
             install(HttpCookies) {
-                storage = ConstantCookiesStorage(Cookie("id", "1"))
+                storage = ConstantCookiesStorage(Cookie("id", "1", domain = "localhost"))
             }
         }
 
@@ -97,7 +101,7 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
             repeat(3) {
                 client.get<Unit>(path = "/update-user-id", port = serverPort)
                 assertEquals(1, client.getId())
-                assertNull(client.cookies("localhost")["user"]?.value)
+                assertNull(client.cookies(hostname)["user"]?.value)
             }
         }
     }
@@ -108,8 +112,8 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
             install(HttpCookies) {
                 default {
                     runBlocking {
-                        addCookie("localhost", Cookie("first", "first-cookie"))
-                        addCookie("localhost", Cookie("second", "second-cookie"))
+                        addCookie(hostname, Cookie("first", "first-cookie", domain = "localhost"))
+                        addCookie(hostname, Cookie("second", "second-cookie", domain = "localhost"))
                     }
                 }
             }
@@ -131,11 +135,11 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
         val client = HttpClient(factory)
         val a = client.config {
             install(HttpCookies) {
-                default { runBlocking { addCookie("localhost", Cookie("id", "1")) } }
+                default { runBlocking { addCookie(hostname, Cookie("id", "1")) } }
             }
         }
         val b = a.config {
-            install(HttpCookies) { default { runBlocking { addCookie("localhost", Cookie("id", "10")) } } }
+            install(HttpCookies) { default { runBlocking { addCookie(hostname, Cookie("id", "10")) } } }
         }
 
         val c = a.config { }
@@ -172,7 +176,5 @@ abstract class CookiesTest(private val factory: HttpClientEngineFactory<*>) : Te
         client.close()
     }
 
-    private fun HttpClient.config(block: HttpClientConfig<*>.() -> Unit): HttpClient = TODO("$block")
-
-    private suspend fun HttpClient.getId() = cookies("localhost")["id"]?.value?.toInt()!!
+    private suspend fun HttpClient.getId() = cookies(hostname)["id"]!!.value.toInt()
 }

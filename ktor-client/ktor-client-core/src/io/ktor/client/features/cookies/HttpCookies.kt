@@ -16,9 +16,7 @@ import io.ktor.util.*
  */
 class HttpCookies(private val storage: CookiesStorage) {
 
-    suspend fun get(host: String): Map<String, Cookie>? = storage.get(host)
-
-    suspend fun get(host: String, name: String): Cookie? = storage.get(host, name)
+    suspend fun get(requestUrl: Url): List<Cookie> = storage.get(requestUrl)
 
     class Config {
         private val defaults = mutableListOf<CookiesStorage.() -> Unit>()
@@ -51,12 +49,13 @@ class HttpCookies(private val storage: CookiesStorage) {
 
         override fun install(feature: HttpCookies, scope: HttpClient) {
             scope.sendPipeline.intercept(HttpSendPipeline.State) {
-                val host = context.url.host.toLowerCase()
+                val secure = context.url.protocol.isSecure()
 
-                val cookies = feature.get(host) ?: return@intercept
+                val cookies = feature.get(context.url.clone().build()) ?: return@intercept
+
                 with(context) {
                     header(HttpHeaders.Cookie, buildString {
-                        cookies.forEach { _, cookie ->
+                        cookies.forEach { cookie ->
                             append(renderCookieHeader(cookie))
                             append(";")
                         }
@@ -65,14 +64,26 @@ class HttpCookies(private val storage: CookiesStorage) {
             }
 
             scope.receivePipeline.intercept(HttpReceivePipeline.State) { response ->
-                val host = context.request.url.host.toLowerCase()
-                response.setCookie().forEach { feature.storage.addCookie(host, it) }
+                val url = context.request.url
+                response.setCookie().forEach {
+                    feature.storage.addCookie(url, it)
+                }
             }
         }
     }
 }
 
 /**
- * Gets all the cookies for the specified [host] for this [HttpClient].
+ * Gets all the cookies for the specified [url] for this [HttpClient].
  */
-suspend fun HttpClient.cookies(host: String): Map<String, Cookie> = feature(HttpCookies)?.get(host) ?: mapOf()
+suspend fun HttpClient.cookies(url: Url): List<Cookie> = feature(HttpCookies)?.get(url) ?: emptyList()
+/**
+ * Gets all the cookies for the specified [urlString] for this [HttpClient].
+ */
+suspend fun HttpClient.cookies(urlString: String): List<Cookie> =
+    feature(HttpCookies)?.get(Url(urlString)) ?: emptyList()
+
+/**
+ * Find the [Cookie] by [name]
+ */
+operator fun List<Cookie>.get(name: String): Cookie? = find { it.name == name }
