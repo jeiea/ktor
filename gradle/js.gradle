@@ -28,6 +28,7 @@ compileKotlin2Js {
 }
 
 kotlinFrontend {
+    downloadNodeJsVersion = "10.8.0"
     webpackBundle {
         bundleName = "main"
     }
