@@ -12,7 +12,7 @@ import kotlin.test.*
 
 class CallIdTest {
     @Test
-    fun missingFeature() = withTestApplication {
+    fun missingFeature(): Unit = withTestApplication {
         handle {
             call.respond(call.callId.toString())
         }
@@ -24,9 +24,9 @@ class CallIdTest {
     }
 
     @Test
-    fun customExtractor() = withTestApplication {
+    fun customRetriever(): Unit = withTestApplication {
         application.install(CallId) {
-            fetch { call ->
+            retrieve { call ->
                 call.request.uri
             }
         }
@@ -38,7 +38,7 @@ class CallIdTest {
     }
 
     @Test
-    fun headerExtractor() = withTestApplication {
+    fun headerRetriever(): Unit = withTestApplication {
         application.install(CallId) {
             header(HttpHeaders.XRequestId)
         }
@@ -58,7 +58,7 @@ class CallIdTest {
     }
 
     @Test
-    fun headerExtractorWithGenerator() = withTestApplication {
+    fun headerRetrieverWithGenerator(): Unit = withTestApplication {
         application.install(CallId) {
             header(HttpHeaders.XRequestId)
             generate {
@@ -81,7 +81,7 @@ class CallIdTest {
     }
 
     @Test
-    fun headerExtractorWithTextGenerator() = withTestApplication {
+    fun headerRetrieverWithTextGenerator(): Unit = withTestApplication {
         val dictionary = "ABC"
         val length = 64
 
@@ -111,7 +111,7 @@ class CallIdTest {
     }
 
     @Test
-    fun headerExtractorWithDefaultTextGenerator() = withTestApplication {
+    fun headerRetrieverWithDefaultTextGenerator(): Unit = withTestApplication {
         val dictionary = CALL_ID_DEFAULT_DICTIONARY
         val length = 64
 
