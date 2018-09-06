@@ -23,7 +23,7 @@ class AcceptAllCookiesStorage() : CookiesStorage {
 
     override suspend fun addCookie(requestUrl: Url, cookie: Cookie): Unit = mutex.use {
         with(cookie) {
-            if (name.isBlank() || domain == null || domain?.isBlank() == true) return@use
+            if (name.isBlank()) return@use
         }
 
         container.removeAll { it.name == cookie.name && it.matches(requestUrl) }

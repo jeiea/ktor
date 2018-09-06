@@ -44,5 +44,9 @@ internal fun Cookie.fillDefaults(requestUrl: Url): Cookie {
         result = result.copy(path = requestUrl.encodedPath)
     }
 
+    if (result.domain.isNullOrBlank()) {
+        result = result.copy(domain = requestUrl.host)
+    }
+
     return result
 }

@@ -49,17 +49,10 @@ class HttpCookies(private val storage: CookiesStorage) {
 
         override fun install(feature: HttpCookies, scope: HttpClient) {
             scope.sendPipeline.intercept(HttpSendPipeline.State) {
-                val secure = context.url.protocol.isSecure()
-
-                val cookies = feature.get(context.url.clone().build()) ?: return@intercept
+                val cookies = feature.get(context.url.clone().build())
 
                 with(context) {
-                    header(HttpHeaders.Cookie, buildString {
-                        cookies.forEach { cookie ->
-                            append(renderCookieHeader(cookie))
-                            append(";")
-                        }
-                    })
+                    header(HttpHeaders.Cookie, renderClientCookies(cookies))
                 }
             }
 
@@ -70,6 +63,15 @@ class HttpCookies(private val storage: CookiesStorage) {
                 }
             }
         }
+    }
+}
+
+private fun renderClientCookies(cookies: List<Cookie>): String = buildString {
+    cookies.forEach {
+        append(it.name)
+        append('=')
+        append(it.value.encodeURLParameter())
+        append(';')
     }
 }
 
