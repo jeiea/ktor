@@ -78,7 +78,7 @@ class CallId(
                     extractors = (configuration.fetchers + configuration.generators).toTypedArray()
             )
 
-            pipeline.insertPhaseBefore(ApplicationCallPipeline.Infrastructure, phase)
+            pipeline.insertPhaseBefore(ApplicationCallPipeline.CallPreparation, phase)
 
             if (instance.extractors.isEmpty()) {
                 logger.warn("CallId feature is not configured: neither fetchers nor generators were configured")
