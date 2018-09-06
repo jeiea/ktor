@@ -8,7 +8,7 @@ import java.util.*
 import kotlin.reflect.jvm.*
 
 /**
- * A function that fetches or generates call using provided call
+ * A function that fetches or generates call id using provided call
  */
 typealias CallIdFetcher = (call: ApplicationCall) -> String?
 
@@ -31,9 +31,12 @@ val ApplicationCall.callId: String? get() = attributes.getOrNull(CallId.callIdKe
  *
  * [CallId] feature will be installed to [CallId.phase] into [ApplicationCallPipeline].
  */
-class CallId(
-        val extractors: Array<CallIdFetcher>
+class CallId private constructor(
+        private val extractors: Array<CallIdFetcher>
 ) {
+    /**
+     * [CallId] feature's configuration
+     */
     class Configuration {
         internal val fetchers = ArrayList<CallIdFetcher>()
         internal val generators = ArrayList<CallIdFetcher>()
@@ -61,6 +64,9 @@ class CallId(
         }
     }
 
+    /**
+     * Installable feature for [CallId]
+     */
     companion object Feature : ApplicationFeature<ApplicationCallPipeline, CallId.Configuration, CallId> {
         /**
          * [ApplicationCallPipeline]'s phase which this feature will be installed to
