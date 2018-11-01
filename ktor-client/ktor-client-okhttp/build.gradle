@@ -1,3 +1,8 @@
+configurations {
+    fatjar {
+        extendsFrom(compile)
+    }
+}
 
 dependencies {
     compile project(':ktor-client:ktor-client-core:ktor-client-core-jvm')
@@ -5,4 +10,32 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:3.11.0'
 
     testImplementation project(':ktor-client:ktor-client-tests')
+
+    fatjar project(':ktor-client:ktor-client-features:ktor-client-json:ktor-client-json-jvm')
+    fatjar project(':ktor-client:ktor-client-features:ktor-client-json:ktor-client-gson')
+}
+
+task customFatJar(type: Jar) {
+    from {
+        def internals = configurations.fatjar.findAll {
+            if (fileTree(it).include('**/*.class').collect().size() > 0) {
+                println(it.path)
+            }
+            println(fileTree(it).collect())
+            it.path.startsWith('D:') || it.path.contains('-io-jvm')
+        }
+        internals.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    from sourceSets.main.output
+    from ':ktor-client:ktor-client-features:ktor-client-json:ktor-client-json-jvm:jar'
+    from ':ktor-client:ktor-client-features:ktor-client-json:ktor-client-gson:jar'
+    
+    exclude('*.kotlin_metadata')
+    version = '0.9.5'
+    classifier = 'custom'
+}
+
+task fatJarPublish(type: Copy) {
+    from customFatJar
+    into 'D:/Jeiea/Project/2017/12/globe-album/landmarks-clientkt/libs'
 }
