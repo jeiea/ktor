@@ -12,6 +12,9 @@ import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.jetty.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.*
+import kotlinx.coroutines.selects.*
 import kotlin.test.*
 
 open class ConnectionTest(val factory: HttpClientEngineFactory<*>) : TestWithKtor() {
@@ -28,6 +31,9 @@ open class ConnectionTest(val factory: HttpClientEngineFactory<*>) : TestWithKto
             }
             get("/ok") {
                 call.respondText(testContent)
+            }
+            get("/hang") {
+                delay(Long.MAX_VALUE)
             }
         }
     }
@@ -62,6 +68,53 @@ open class ConnectionTest(val factory: HttpClientEngineFactory<*>) : TestWithKto
         test { client ->
             client.receive().close()
             assertEquals(testContent, client.receive().response.readText())
+        }
+    }
+
+    @Test
+    fun cancellationTest() = clientTest(factory) {
+
+        suspend fun CoroutineScope.duringMonitoringAllThreads(block: suspend CoroutineScope.() -> Unit) {
+            val failure = Channel<Throwable>()
+            val predecessor = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { _, e -> failure.offer(e) }
+            try {
+                select<Unit> {
+                    launch { block() }.onJoin {}
+                    failure.onReceive { ex ->
+                        fail("A thread aborts: $ex")
+                    }
+                }
+            } finally {
+                Thread.setDefaultUncaughtExceptionHandler(predecessor)
+            }
+        }
+
+        suspend fun HttpClient.hangRequest() = call {
+            url {
+                port = serverPort
+                encodedPath = "/hang"
+            }
+        }
+
+        suspend fun CoroutineScope.jobToCancel(client: HttpClient) = launch {
+            try {
+                client.hangRequest()
+                fail("Expected exception is not thrown")
+            } catch (e: Exception) {
+                assert(e is CancellationException)
+            }
+        }
+
+        test { client ->
+            withTimeout(1000) {
+                duringMonitoringAllThreads {
+                    val job = jobToCancel(client)
+                    delay(200)
+                    job.cancelAndJoin()
+                    assert(job.isCompleted)
+                }
+            }
         }
     }
 }
