@@ -7,18 +7,24 @@ import kotlin.coroutines.*
 
 internal suspend fun OkHttpClient.execute(request: Request): Response = suspendCancellableCoroutine {
     val call = newCall(request)
+    val callback = object : Callback {
 
-    call.enqueue(object : Callback {
         override fun onFailure(call: Call, cause: IOException) {
-            it.resumeWithException(cause)
+            if (!call.isCanceled) {
+                it.resumeWithException(cause)
+            }
         }
 
         override fun onResponse(call: Call, response: Response) {
-            it.resume(response)
+            if (!call.isCanceled) {
+                it.resume(response)
+            }
         }
-    })
+    }
 
-    it.invokeOnCancellation { _ ->
+    call.enqueue(callback)
+
+    it.invokeOnCancellation { ex ->
         call.cancel()
     }
 }
